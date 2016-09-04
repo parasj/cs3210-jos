@@ -24,6 +24,7 @@ struct Command {
 static struct Command commands[] = {
   { "help",      "Display this list of commands",        mon_help       },
   { "info-kern", "Display information about the kernel", mon_infokern   },
+  { "backtrace", "Display backtrace", mon_backtrace   },
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -59,7 +60,34 @@ mon_infokern(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-  // Your code here.
+  // Calling convention:
+  // 0 saved ebp <----- read_ebp
+  // 1 return addr (eip)
+  // 2 arg0
+  // 3 arg1
+  // 4 arg2
+  // 5 arg3
+  // 6 arg4
+  
+  cprintf("Stack backtrace:\n");
+
+  // read ebp
+  uint32_t *ebp = (uint32_t*) read_ebp();
+
+  // info struct (allocated on stack)
+  struct Eipdebuginfo info;
+
+  // while the ebp is not zero (movl  $0x0,%ebp sets base of stack)
+  while (ebp != NULL) {
+    // read in struct from symbol table
+    debuginfo_eip(ebp[1], &info);
+    cprintf("  ebp %08x  eip %08x  args %08x %08x %08x %08x %08x\n", ebp, ebp[1], ebp[2], ebp[3], ebp[4], ebp[5], ebp[6]);
+    cprintf("    %s:%d: %.*s+%d\n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, (int) (ebp[1] - info.eip_fn_addr));
+    
+    // dereference ebp to retrieve saved base stack pointer
+    ebp = (uint32_t*) *ebp;
+  }
+  
   return 0;
 }
 
