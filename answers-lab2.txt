@@ -1,3 +1,7 @@
 # CS 3210 - Lab 1
 Paras Jain (pjain67)
 
+1) Question 1
+mystery_t is of type uintptr_t because value is a pointer which is a virtual memory address.
+
+2) 
