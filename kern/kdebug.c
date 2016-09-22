@@ -204,6 +204,10 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
   //	Look at the STABS documentation and <inc/stab.h> to find
   //	which one.
   // LAB 1: Your code here.
+  
+  // look up for addr in between lline, rline for text segment line number
+  stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
+  info->eip_line = stabs[lline].n_desc;
 
 
   // Search backwards from the line number for the relevant filename
