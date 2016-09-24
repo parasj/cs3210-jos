@@ -107,3 +107,30 @@ _alltraps:
         movw $GD_KD, %eax
         pushl %esp
         call trap
+
+/*
+ * Define trap functions for interrupt vector table
+ */
+.data
+.globl trapfuncs;
+trapfuncs:
+        .long trap_divide
+        .long trap_debug
+        .long trap_nmi
+        .long trap_brkpt
+        .long trap_oflow
+        .long trap_bound
+        .long trap_illop
+        .long trap_device
+        .long trap_dblflt
+        .long 0
+        .long trap_tss
+        .long trap_segnp
+        .long trap_stack
+        .long trap_gpflt
+        .long trap_pgflt
+        .long 0
+        .long trap_fperr
+        .long trap_align
+        .long trap_mchk
+        .long trap_simderr
