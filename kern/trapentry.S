@@ -47,9 +47,63 @@
  * Lab 3: Your code here for generating entry points for the different traps.
  */
 
-
-
 /*
- * Lab 3: Your code here for _alltraps
+ * Vector nr.      Error code?     Name
+ * =============================================================
+ * 0 (0x0)         No              Divide-by-zero Error
+ * 1 (0x1)         No              Debug
+ * 2 (0x2)         No              Non-maskable Interrupt
+ * 3 (0x3)         No              Breakpoint
+ * 4 (0x4)         No              Overflow
+ * 5 (0x5)         No              Bound Range Exceeded
+ * 6 (0x6)         No              Invalid Opcode
+ * 7 (0x7)         No              Device Not Available
+ * 8 (0x8)         Yes (Zero)      Double Fault
+ * 9 (0x9)         No              Coprocessor Segment Overrun
+ * 10 (0xA)        Yes             Invalid TSS
+ * 11 (0xB)        Yes             Segment Not Present
+ * 12 (0xC)        Yes             Stack-Segment Fault
+ * 13 (0xD)        Yes             General Protection Fault
+ * 14 (0xE)        Yes             Page Fault
+ * 15 (0xF)        No              Reserved
+ * 16 (0x10)       No              x87 Floating-Point Exception
+ * 17 (0x11)       Yes             Alignment Check
+ * 18 (0x12)       No              Machine Check
+ * 19 (0x13)       No              SIMD Floating-Point Exception
+ * 20 (0x14)       No              Virtualization Exception
+ * 21-29(0x15-0x1D)No              Reserved
+ * 30 (0x1E)       Yes             Security Exception
+ * 31 (0x1F)       No              Reserved
+ * -               No              Triple Fault
+ * IRQ 13          No              FPU Error Interrupt
  */
 
+        TRAPHANDLER_NOEC(trap_divide, T_DIVIDE)
+        TRAPHANDLER_NOEC(trap_debug, T_DEBUG)
+        TRAPHANDLER_NOEC(trap_nmi, T_NMI)
+        TRAPHANDLER_NOEC(trap_brkpt, T_BRKPT)
+        TRAPHANDLER_NOEC(trap_oflow, T_OFLOW)
+        TRAPHANDLER_NOEC(trap_bound, T_BOUND)
+        TRAPHANDLER_NOEC(trap_illop, T_ILLOP)
+        TRAPHANDLER_NOEC(trap_device, T_DEVICE)
+        TRAPHANDLER_NOEC(trap_fperr, T_FPERR)
+        TRAPHANDLER_NOEC(trap_mchk, T_MCHK)
+        TRAPHANDLER_NOEC(trap_simderr, T_SIMDERR)
+
+
+        TRAPHANDLER(trap_dblflt, T_DBLFLT)
+        TRAPHANDLER(trap_tss, T_TSS)
+        TRAPHANDLER(trap_segnp, T_SEGNP)
+        TRAPHANDLER(trap_stack, T_STACK)
+        TRAPHANDLER(trap_gpflt, T_GPFLT)
+        TRAPHANDLER(trap_pgflt, T_PGFLT)
+        TRAPHANDLER(trap_align, T_ALIGN)
+
+_alltraps:
+        pushl %ds
+        pushl %es
+        pushal
+        movw $GD_KD, %eax
+        movw $GD_KD, %eax
+        pushl %esp
+        call trap

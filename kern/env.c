@@ -347,6 +347,8 @@ load_icode(struct Env *e, uint8_t *binary)
   //  to make sure that the environment starts executing there.
   //  What?  (See env_run() and env_pop_tf() below.)
 
+  // copied from main.c
+
   struct Elf *elf = (struct Elf*) binary;
   if (elf->e_magic != ELF_MAGIC)
     panic("load_icode: ELF header is not ELF_MAGIC");
