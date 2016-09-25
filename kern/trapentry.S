@@ -20,32 +20,32 @@
  *   void NAME();
  * where NAME is the argument passed to TRAPHANDLER.
  */
-#define TRAPHANDLER(name, num)                                          \
-        .globl name;            /* define global symbol for 'name' */   \
-        .type name, @function;  /* symbol type is function */           \
-        .align 2;               /* align function definition */         \
-        name:                   /* function starts here */              \
-        pushl $(num);                                                   \
-        jmp _alltraps
+#define TRAPHANDLER(name, num)                                                  \
+        .text;                                                                  \
+                .globl name;            /* define global symbol for 'name' */   \
+                .type name, @function;  /* symbol type is function */           \
+                .align 2;               /* align function definition */         \
+                name:                   /* function starts here */              \
+                pushl $(num);                                                   \
+                jmp _alltraps;                                                  \
+        .data;                                                                  \
+                .long name;
 
 /* Use TRAPHANDLER_NOEC for traps where the CPU doesn't push an error code.
  * It pushes a 0 in place of the error code, so the trap frame has the same
  * format in either case.
  */
-#define TRAPHANDLER_NOEC(name, num)                                     \
-        .globl name;                                                    \
-        .type name, @function;                                          \
-        .align 2;                                                       \
-        name:                                                           \
-        pushl $0;                                                       \
-        pushl $(num);                                                   \
-        jmp _alltraps
-
-.text
-
-/*
- * Lab 3: Your code here for generating entry points for the different traps.
- */
+#define TRAPHANDLER_NOEC(name, num)                                             \
+        .text;                                                                  \
+                .globl name;                                                    \
+                .type name, @function;                                          \
+                .align 2;                                                       \
+                name:                                                           \
+                pushl $0;                                                       \
+                pushl $(num);                                                   \
+                jmp _alltraps;                                                  \
+        .data;                                                                  \
+                .long name;
 
 /*
  * Vector nr.      Error code?     Name
@@ -78,6 +78,11 @@
  * IRQ 13          No              FPU Error Interrupt
  */
 
+.data
+.globl trapfuncs
+
+trapfuncs:
+        .text
         TRAPHANDLER_NOEC(trap_divide, T_DIVIDE)
         TRAPHANDLER_NOEC(trap_debug, T_DEBUG)
         TRAPHANDLER_NOEC(trap_nmi, T_NMI)
@@ -86,51 +91,37 @@
         TRAPHANDLER_NOEC(trap_bound, T_BOUND)
         TRAPHANDLER_NOEC(trap_illop, T_ILLOP)
         TRAPHANDLER_NOEC(trap_device, T_DEVICE)
-        TRAPHANDLER_NOEC(trap_fperr, T_FPERR)
-        TRAPHANDLER_NOEC(trap_mchk, T_MCHK)
-        TRAPHANDLER_NOEC(trap_simderr, T_SIMDERR)
-
-
         TRAPHANDLER(trap_dblflt, T_DBLFLT)
+        TRAPHANDLER_NOEC(trap_r9, 9)
         TRAPHANDLER(trap_tss, T_TSS)
         TRAPHANDLER(trap_segnp, T_SEGNP)
         TRAPHANDLER(trap_stack, T_STACK)
         TRAPHANDLER(trap_gpflt, T_GPFLT)
         TRAPHANDLER(trap_pgflt, T_PGFLT)
+        TRAPHANDLER_NOEC(trap_r15, 15)
+        TRAPHANDLER_NOEC(trap_fperr, T_FPERR)
         TRAPHANDLER(trap_align, T_ALIGN)
+        TRAPHANDLER_NOEC(trap_mchk, T_MCHK)
+        TRAPHANDLER_NOEC(trap_simderr, T_SIMDERR)
+        TRAPHANDLER_NOEC(trap_r20, 20)
+        TRAPHANDLER_NOEC(trap_r21, 21)
+        TRAPHANDLER_NOEC(trap_r22, 22)
+        TRAPHANDLER_NOEC(trap_r23, 23)
+        TRAPHANDLER_NOEC(trap_r24, 24)
+        TRAPHANDLER_NOEC(trap_r25, 25)
+        TRAPHANDLER_NOEC(trap_r26, 26)
+        TRAPHANDLER_NOEC(trap_r27, 27)
+        TRAPHANDLER_NOEC(trap_r28, 28)
+        TRAPHANDLER_NOEC(trap_r29, 29)
+        TRAPHANDLER_NOEC(trap_r30, 30)
+        TRAPHANDLER_NOEC(trap_r31, 31)
+        
 
 _alltraps:
         pushl %ds
         pushl %es
         pushal
-        movw $GD_KD, %eax
-        movw $GD_KD, %eax
+        movw $GD_KD, %ax
+        movw $GD_KD, %ax
         pushl %esp
         call trap
-
-/*
- * Define trap functions for interrupt vector table
- */
-.data
-.globl trapfuncs;
-trapfuncs:
-        .long trap_divide
-        .long trap_debug
-        .long trap_nmi
-        .long trap_brkpt
-        .long trap_oflow
-        .long trap_bound
-        .long trap_illop
-        .long trap_device
-        .long trap_dblflt
-        .long 0
-        .long trap_tss
-        .long trap_segnp
-        .long trap_stack
-        .long trap_gpflt
-        .long trap_pgflt
-        .long 0
-        .long trap_fperr
-        .long trap_align
-        .long trap_mchk
-        .long trap_simderr
