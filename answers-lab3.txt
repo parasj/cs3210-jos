@@ -41,44 +41,50 @@ to remove redundant code between trapentry.S and trap.c.
 
 Two steps were required in implementing this challenge:
  1. I added an array to trapentry.S that served as a mapping from trap number to
-    a pointer to the trap handler.
+    a pointer to the trap handler. This was constructed through modification of
+    the TRAPHANDLER and TRAPHANDLER_NOEC macros.
 
-    > .data
-    > .globl trapfuncs;
-    > trapfuncs:
-    >         .long trap_divide
-    >         .long trap_debug
-    >         .long trap_nmi
-    >         .long trap_brkpt
-    >         .long trap_oflow
-    >         .long trap_bound
-    >         .long trap_illop
-    >         .long trap_device
-    >         .long trap_dblflt
-    >         .long 0
-    >         .long trap_tss
-    >         .long trap_segnp
-    >         .long trap_stack
-    >         .long trap_gpflt
-    >         .long trap_pgflt
-    >         .long 0
-    >         .long trap_fperr
-    >         .long trap_align
-    >         .long trap_mchk
-    >         .long trap_simderr
+>        #define TRAPHANDLER(name, num)                                          \
+>     +      .data;                                                              \
+>     +          .long name;                                                     \
+>     +      .text;                                                              \
+>                .globl name;            /* define global symbol for 'name' */   \
+>                .type name, @function;  /* symbol type is function */           \
+>                .align 2;               /* align function definition */         \
+>                name:                   /* function starts here */              \
+>                pushl $(num);                                                   \
+>     ~          jmp _alltraps;
+
+>        #define TRAPHANDLER_NOEC(name, num)                                     \
+>     +      .data;                                                              \
+>     +          .long name;                                                     \
+>     +      .text;                                                              \
+>               .globl name;                                                     \
+>                .type name, @function;                                          \
+>                .align 2;                                                       \
+>                name:                                                           \
+>                pushl $0;                                                       \
+>                pushl $(num);                                                   \
+>     ~          jmp _alltraps;
+
+>     +  .data
+>     +  .globl trapfuncs
+>     +  trapfuncs:
+>            .text
+>            TRAPHANDLER_NOEC(trap_divide, T_DIVIDE)
+>            ...
+
 
  2. I replaced the SETGATE declarations in trap.c with a for loop using the
- 	array specified above in trapentry.S to map trap numbers to the handlers.
- 	Trap number 3 (breakpoint) was handled separately as it is accessible from CPL
- 	3 as compared to CPL 0.
+    array specified above in trapentry.S to map trap numbers to the handlers.
+    Trap number 3 (breakpoint) was handled separately as it is accessible from CPL
+    3 as compared to CPL 0.
 
- 	> // trap function array
- 	> extern uintptr_t trapfuncs[];
- 	> // set up idt
- 	> SETGATE(idt[T_BRKPT], 0, GD_KT, trapfuncs[T_BRKPT], 3) // INT 3 instruction
- 	> for (int i = 0; i < 20; ++i)
- 	>     if (i != T_BRKPT)
- 	>         SETGATE(idt[i], 0, GD_KT, trapfuncs[i], 0);
+>     +  extern uintptr_t trapfuncs[];
+>     ~  SETGATE(idt[T_BRKPT], 0, GD_KT, trapfuncs[T_BRKPT], 3) // INT 3 instruction
+>     +  for (int i = 0; i < 20; ++i)
+>     +      if (i != T_BRKPT)
+>     +          SETGATE(idt[i], 0, GD_KT, trapfuncs[i], 0);rap function array
 
 This simplified code by reducing the duplication of entries in the two sections
 and also reduced coupling by a bit as we can add another trap by adding another
