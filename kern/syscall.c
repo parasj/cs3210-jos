@@ -4,6 +4,7 @@
 #include <inc/error.h>
 #include <inc/string.h>
 #include <inc/assert.h>
+#include <inc/syscall.h>
 
 #include <kern/env.h>
 #include <kern/pmap.h>
@@ -19,8 +20,7 @@ sys_cputs(const char *s, size_t len)
 {
   // Check that the user has permission to read memory [s, s+len).
   // Destroy the environment if not.
-
-  // LAB 3: Your code here.
+  user_mem_assert(curenv, s, len, 0);
 
   // Print the string supplied by the user.
   cprintf("%.*s", len, s);
@@ -44,8 +44,8 @@ sys_getenvid(void)
 // Destroy a given environment (possibly the currently running environment).
 //
 // Returns 0 on success, < 0 on error.  Errors are:
-//	-E_BAD_ENV if environment envid doesn't currently exist,
-//		or the caller doesn't have permission to change envid.
+//  -E_BAD_ENV if environment envid doesn't currently exist,
+//    or the caller doesn't have permission to change envid.
 static int
 sys_env_destroy(envid_t envid)
 {
@@ -68,13 +68,25 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 {
   // Call the function corresponding to the 'syscallno' parameter.
   // Return any appropriate return value.
-  // LAB 3: Your code here.
-
-  panic("syscall not implemented");
+  uint32_t rval = -E_INVAL;
 
   switch (syscallno) {
-  default:
-    return -E_INVAL;
+    case SYS_cputs:
+      sys_cputs((char *) a1, (size_t) a2);
+      rval = 0;
+      break;
+    case SYS_cgetc:
+      rval = sys_cgetc();
+      break;
+    case SYS_getenvid:
+      rval = sys_getenvid();
+      break;
+    case SYS_env_destroy:
+      rval = sys_env_destroy(a1); 
+    default:
+      rval = -E_INVAL;
   }
+
+  return rval;
 }
 
