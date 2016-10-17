@@ -571,12 +571,18 @@ static uintptr_t user_mem_check_addr;
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
+  // update permissions checl
   perm = perm | PTE_P;
+
+  // round down pages to lower page boundary, iterate page by page
   for (int i = ROUNDDOWN((uintptr_t) va, PGSIZE); (void*)i < ROUNDUP(va + len, PGSIZE); i += PGSIZE) {
+    // check i is below ULIM, page directory entry exists and has permissions
+    // and the page table entry exists and has permissions
     if (i > ULIM
       || (env->env_pgdir[PDX(user_mem_check_addr)] & perm) != perm
       || (*pgdir_walk(env->env_pgdir, (void*) i, 0) & perm) != perm) {
       // check to return first address that has an error
+      // returns va if the first page has an error
       if (i < (uintptr_t) va)
         user_mem_check_addr = (uintptr_t) va;
       else
