@@ -308,7 +308,7 @@ page_init(void)
 
   for (i = 0; i < npages; i++) {
     // if i is not a page number that is used, mark as free
-    if ((i > 0 && i < npages_basemem) || (i >= PGNUM(PADDR(boot_alloc(0))))) {
+    if (PGNUM(MPENTRY_PADDR) != i && ((i > 0 && i < npages_basemem) || (i >= PGNUM(PADDR(boot_alloc(0)))))) {
       pages[i].pp_ref = 0;
       pages[i].pp_link = page_free_list;
       page_free_list = &pages[i];
@@ -612,9 +612,17 @@ mmio_map_region(physaddr_t pa, size_t size)
   // okay to simply panic if this happens).
   //
   // Hint: The staff solution uses boot_map_region.
-  //
-  // Your code here:
-  panic("mmio_map_region not implemented");
+
+  size_t rounded_size = ROUNDUP(size, PGSIZE);
+  void *previous_base = (void *) base;
+  
+  if (pa + rounded_size > MMIOLIM)
+    panic("mmio_map_region: mapping exceeds MMIOLIM");
+
+  boot_map_region(kern_pgdir, base, rounded_size, pa, PTE_PCD | PTE_PWT | PTE_W);
+  base += rounded_size;
+
+  return previous_base;
 }
 
 static uintptr_t user_mem_check_addr;
