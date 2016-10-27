@@ -262,8 +262,10 @@ mem_init_mp(void)
   //             Known as a "guard page".
   //     Permissions: kernel RW, user NONE
   //
-  // LAB 4: Your code here:
-
+  for (int i = 0; i < NCPU; ++i) {
+    uintptr_t kstacktop_i = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
+    boot_map_region(kern_pgdir, kstacktop_i - KSTKSIZE, KSTKSIZE, PADDR(percpu_kstacks[i]), PTE_W);
+  }
 }
 
 // --------------------------------------------------------------
@@ -613,14 +615,20 @@ mmio_map_region(physaddr_t pa, size_t size)
   //
   // Hint: The staff solution uses boot_map_region.
 
-  size_t rounded_size = ROUNDUP(size, PGSIZE);
   void *previous_base = (void *) base;
+
+  physaddr_t pa_rounded = ROUNDDOWN(pa, PGSIZE);
+  size_t size_rounded = ROUNDUP(pa + size, PGSIZE) - pa_rounded;
   
-  if (pa + rounded_size > MMIOLIM)
+  assert(pa_rounded % PGSIZE == 0);
+  assert(size_rounded % PGSIZE == 0);
+  assert(base % PGSIZE == 0);
+
+  if (base + size_rounded > MMIOLIM)
     panic("mmio_map_region: mapping exceeds MMIOLIM");
 
-  boot_map_region(kern_pgdir, base, rounded_size, pa, PTE_PCD | PTE_PWT | PTE_W);
-  base += rounded_size;
+  boot_map_region(kern_pgdir, base, size_rounded, pa_rounded, PTE_PCD | PTE_PWT | PTE_W);
+  base += size_rounded;
 
   return previous_base;
 }
