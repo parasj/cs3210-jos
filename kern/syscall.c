@@ -83,8 +83,18 @@ sys_exofork(void)
   // from the current environment -- but tweaked so sys_exofork
   // will appear to return 0.
 
-  // LAB 4: Your code here.
-  panic("sys_exofork not implemented");
+  struct Env *env;
+
+  int alloc = env_alloc(&env, curenv->env_id);
+  if (alloc)
+    return alloc;
+
+  env->env_tf = curenv->env_tf;
+  env->env_status = ENV_NOT_RUNNABLE;
+
+  env->env_tf.tf_regs.reg_eax = 0;
+
+  return env->env_id;
 }
 
 // Set envid's env_status to status, which must be ENV_RUNNABLE
@@ -103,8 +113,14 @@ sys_env_set_status(envid_t envid, int status)
   // check whether the current environment has permission to set
   // envid's status.
 
-  // LAB 4: Your code here.
-  panic("sys_env_set_status not implemented");
+  if (status != ENV_RUNNABLE || status != ENV_NOT_RUNNABLE) return -E_INVAL;
+
+  struct Env *env;
+  int envlookup = envid2env(envid, &env, 1);
+  if (envlookup) return envlookup;
+
+  env->env_status = status;
+  return 0;
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -284,6 +300,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
       break;
     case SYS_env_destroy:
       rval = sys_env_destroy(a1);
+    case SYS_exofork:
+      rval = sys_exofork();
+    case SYS_env_set_status:
+      rval = sys_env_set_status();
     case SYS_yield:
       sys_yield();
       break;
