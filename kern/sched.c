@@ -26,7 +26,7 @@ sched_yield(void)
   // no runnable environments, simply drop through to the code
   // below to halt the cpu.
 
-  int startEnvx = 1;
+  int startEnvx = 0;
   if (curenv)
     startEnvx = ENVX(curenv->env_id) + 1;
 
@@ -41,9 +41,7 @@ sched_yield(void)
   if (curenv && curenv->env_status == ENV_RUNNING) {
     env_run(curenv);
     return;
-  } 
-
-  cprintf("sched_yield: Dropping to sched_halt! No more envs to run.\n");
+  }
 
   // sched_halt never returns
   sched_halt();
