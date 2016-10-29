@@ -303,7 +303,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
     case SYS_exofork:
       rval = sys_exofork();
     case SYS_env_set_status:
-      rval = sys_env_set_status();
+      rval = sys_env_set_status((envid_t) a1, a2);
     case SYS_yield:
       sys_yield();
       break;
