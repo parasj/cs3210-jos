@@ -91,7 +91,6 @@ sys_exofork(void)
 
   env->env_tf = curenv->env_tf;
   env->env_status = ENV_NOT_RUNNABLE;
-
   env->env_tf.tf_regs.reg_eax = 0;
 
   return env->env_id;
@@ -113,13 +112,14 @@ sys_env_set_status(envid_t envid, int status)
   // check whether the current environment has permission to set
   // envid's status.
 
-  if (status != ENV_RUNNABLE || status != ENV_NOT_RUNNABLE) return -E_INVAL;
+  if (status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE) return -E_INVAL;
 
   struct Env *env;
   int envlookup = envid2env(envid, &env, 1);
   if (envlookup) return envlookup;
 
   env->env_status = status;
+
   return 0;
 }
 
@@ -164,8 +164,36 @@ sys_page_alloc(envid_t envid, void *va, int perm)
   //   If page_insert() fails, remember to free the page you
   //   allocated!
 
-  // LAB 4: Your code here.
-  panic("sys_page_alloc not implemented");
+  // PTE_U and PTE_P must be set
+  // perm & ~(PTE_U | PTE_P | PTE_AVAIL | PTE_W) must be zero
+  if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL))
+    return -E_INVAL;
+
+  // va is >= UTOP or not page aligned
+  if ((uintptr_t) va >= UTOP || (uintptr_t) va % PGSIZE != 0)
+    return -E_INVAL;
+
+  struct Env *env;
+  if (envid2env(envid, &env, 1)) {
+    cprintf("\n1\n\n");
+    return -E_BAD_ENV;
+  }
+
+  struct PageInfo *page = page_alloc(ALLOC_ZERO);
+  if (page == NULL) {
+    cprintf("\n2\n\n");
+    return -E_NO_MEM;
+  }
+
+  page->pp_ref++;
+
+  if (page_insert(env->env_pgdir, page, va, perm)) {
+    cprintf("\n3\n\n");
+    page_free(page);
+    return -E_NO_MEM;
+  }
+
+  return 0;
 }
 
 // Map the page of memory at 'srcva' in srcenvid's address space
@@ -188,6 +216,11 @@ static int
 sys_page_map(envid_t srcenvid, void *srcva,
              envid_t dstenvid, void *dstva, int perm)
 {
+  struct Env *srcenv;
+  struct Env *dstenv;
+  pte_t *pte;
+
+
   // Hint: This function is a wrapper around page_lookup() and
   //   page_insert() from kern/pmap.c.
   //   Again, most of the new code you write should be to check the
@@ -195,8 +228,33 @@ sys_page_map(envid_t srcenvid, void *srcva,
   //   Use the third argument to page_lookup() to
   //   check the current permissions on the page.
 
-  // LAB 4: Your code here.
-  panic("sys_page_map not implemented");
+  //  -E_INVAL if srcva >= UTOP or srcva is not page-aligned,
+  //    or dstva >= UTOP or dstva is not page-aligned.
+  if ((uintptr_t) srcva >= UTOP || (uintptr_t) srcva % PGSIZE != 0 ||
+      (uintptr_t) dstva >= UTOP || (uintptr_t) dstva % PGSIZE != 0)
+    return -E_INVAL;
+
+  //  -E_INVAL if perm is inappropriate (see sys_page_alloc).
+  if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL))
+    return -E_INVAL;
+
+  if (envid2env(srcenvid, &srcenv, 1))
+    return -E_BAD_ENV;
+
+  if (envid2env(dstenvid, &dstenv, 1))
+    return -E_BAD_ENV;
+
+  //  -E_INVAL is srcva is not mapped in srcenvid's address space.
+  struct PageInfo *page = page_lookup(srcenv->env_pgdir, srcva, &pte);
+  if (page == NULL)
+    return -E_INVAL;
+
+  //  -E_INVAL if (perm & PTE_W), but srcva is read-only in srcenvid's
+  //    address space.
+  if ((perm & PTE_W) && !(*pte & PTE_W))
+    return -E_INVAL;
+
+  return page_insert(dstenv->env_pgdir, page, dstva, perm);
 }
 
 // Unmap the page of memory at 'va' in the address space of 'envid'.
@@ -211,8 +269,16 @@ sys_page_unmap(envid_t envid, void *va)
 {
   // Hint: This function is a wrapper around page_remove().
 
-  // LAB 4: Your code here.
-  panic("sys_page_unmap not implemented");
+  if ((uintptr_t) va >= UTOP || (uintptr_t) va % PGSIZE != 0)
+    return -E_INVAL;
+
+  struct Env *env;
+  if (envid2env(envid, &env, 1))
+    return -E_BAD_ENV;
+
+  page_remove(env->env_pgdir, va);
+
+  return 0;
 }
 
 // Try to send 'value' to the target env 'envid'.
@@ -300,10 +366,22 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
       break;
     case SYS_env_destroy:
       rval = sys_env_destroy(a1);
+      break;
+    case SYS_page_alloc:
+      rval = sys_page_alloc((envid_t) a1, (void *) a2, a3);
+      break;
+    case SYS_page_map:
+      rval = sys_page_map((envid_t) a1, (void *) a2, (envid_t) a3, (void *) a4, a5);
+      break;
+    case SYS_page_unmap:
+      rval = sys_page_unmap((envid_t) a1, (void *) a2);
+      break;
     case SYS_exofork:
       rval = sys_exofork();
+      break;
     case SYS_env_set_status:
       rval = sys_env_set_status((envid_t) a1, a2);
+      break;
     case SYS_yield:
       sys_yield();
       break;
