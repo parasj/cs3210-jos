@@ -64,10 +64,10 @@ _pgfault_upcall:
 	// may find that you have to rearrange your code in non-obvious
 	// ways as registers become unavailable as scratch space.
 
-	movl 0x28(%esp), %eax 				// get trap-time eip (eax = tt eip)
+	movl 40(%esp), %eax 				// get trap-time eip (eax = tt eip)
 	subl $4, 0x30(%esp)					// shift by one
-	movl 0x30(%esp), %ebx				// get trap-time esp (ebx = tt esp)
-	movl %eax, %ebx 					// eax = ebx
+	movl 48(%esp), %ebx					// get trap-time esp (ebx = tt esp)
+	movl %eax, 0(%ebx) 					// ebx = eax
 	addl $8, %esp 						// skip fault_va and utf_err
 
 	// Restore the trap-time registers.  After you do this, you
@@ -78,7 +78,7 @@ _pgfault_upcall:
 	// no longer use arithmetic operations or anything else that
 	// modifies eflags.
 	addl $4, %esp 						// skip EIP
-	pushfl								// push eflags back
+	popfl								// push eflags back
 
 	// Switch back to the adjusted trap-time stack.
 	popl %esp

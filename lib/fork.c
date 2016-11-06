@@ -76,9 +76,49 @@ duppage(envid_t envid, unsigned pn)
 //
 envid_t
 fork(void)
-{
-  // LAB 4: Your code here.
-  panic("fork not implemented");
+{  
+  // The parent installs pgfault() as the C-level page fault handler, using the set_pgfault_handler() function you implemented above.
+  // The parent calls sys_exofork() to create a child environment.
+  // For each writable or copy-on-write page in its address space below UTOP, the parent calls duppage, which should map the page copy-on-write into the address space of the child and then remap the page copy-on-write in its own address space. duppage sets both PTEs so that the page is not writeable, and to contain PTE_COW in the “avail” field to distinguish copy-on-write pages from genuine read-only pages.
+  // The exception stack is not remapped this way, however. Instead you need to allocate a fresh page in the child for the exception stack. Since the page fault handler will be doing the actual copying and the page fault handler runs on the exception stack, the exception stack cannot be made copy-on-write: who would copy it?
+  // fork() also needs to handle pages that are present, but not writable or copy-on-write.
+  // The parent sets the user page fault entrypoint for the child to look like its own.
+  // The child is now ready to run, so the parent marks it runnable.
+
+  // 1. install pgfault
+  set_pgfault_handler(pgfault);
+
+  // 2. call exofork
+  envid_t e = sys_exofork();
+  if (e < 0)
+    panic("fork: sys_exofork err %e", e);
+  if (e == 0) {
+    // child
+    thisenv = &envs[ENVX(sys_getenvid())];
+    return 0;
+  }
+
+  // 3. duppage for each writable or copy-on-write page
+  for (uintptr_t va = 0; va < USTACKTOP; va += PGSIZE)
+    if ((uvpd[PDX(va)] & (PTE_P | PTE_U)) == (PTE_P | PTE_U) && (uvpt[PGNUM(va)] & (PTE_P | PTE_U)) == (PTE_P | PTE_U))
+      duppage(e, PGNUM(va));
+
+  // 4. allocate exception stack
+  int rval = sys_page_alloc(e, (void *)(UXSTACKTOP - PGSIZE), PTE_P | PTE_U | PTE_W);
+  if (rval < 0)
+    panic("fork: sys_page_alloc err %e", rval);
+
+  // 5. set user page fault entrypoint
+  rval = sys_env_set_pgfault_upcall(e, thisenv->env_pgfault_upcall);
+  if (rval < 0)
+    panic("fork: sys_env_set_pgfault_upcall err %e", rval);
+
+  // 6. Set runnable
+  rval = sys_env_set_status(e, ENV_RUNNABLE);
+  if (rval < 0)
+    panic("fork: sys_env_set_status err %e", rval);
+
+  return 0;
 }
 
 // Challenge!
