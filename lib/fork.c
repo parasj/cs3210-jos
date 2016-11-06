@@ -23,18 +23,27 @@ pgfault(struct UTrapframe *utf)
   // Hint:
   //   Use the read-only page table mappings at uvpt
   //   (see <inc/memlayout.h>).
-
-  // LAB 4: Your code here.
+  
+  if (!(err & FEC_WR))
+    panic("pgfault (fork.c): not write");
+  if ((uvpt[PGNUM(addr)] & (PTE_P | PTE_U | PTE_COW)) != (PTE_P | PTE_U | PTE_COW))
+    panic("pgfault (fork.c): not copy-on-write page");
 
   // Allocate a new page, map it at a temporary location (PFTEMP),
   // copy the data from the old page to the new page, then move the new
   // page to the old page's address.
   // Hint:
   //   You should make three system calls.
-
-  // LAB 4: Your code here.
-
-  panic("pgfault not implemented");
+  r = sys_page_alloc(0, PFTEMP, PTE_P | PTE_U | PTE_W);
+  if (r < 0)
+    panic("pgfault (fork.c): sys_page_alloc err %e", r);
+  memcpy(PFTEMP, ROUNDDOWN(addr, PGSIZE), PGSIZE);
+  r = sys_page_map(0, PFTEMP, 0, ROUNDDOWN(addr, PGSIZE), PTE_P | PTE_U | PTE_W);
+    if (r < 0)
+    panic("pgfault (fork.c): sys_page_map err %e", r);
+  r = sys_page_unmap(0, PFTEMP);
+  if (r < 0)
+    panic("pgfault (fork.c): sys_page_unmap err %e", r);
 }
 
 //
@@ -52,9 +61,24 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
   int r;
+  uintptr_t va = pn * PGSIZE;
 
-  // LAB 4: Your code here.
-  panic("duppage not implemented");
+  // ensure correct permissions
+  assert((uvpt[pn] & (PTE_P | PTE_U)) == (PTE_P | PTE_U));
+  assert(envid > 0);
+  assert(pn > 0);
+  assert(va < UTOP);
+  assert(va <= USTACKTOP);
+
+  if (uvpt[pn] & (PTE_W | PTE_COW)) {
+    if ((r = sys_page_map(0, (void *) va, envid, (void *) va, PTE_U | PTE_P | PTE_COW)) < 0)
+      panic("duppage: sys_page_map (2) err %e", r);
+    if ((r = sys_page_map(0, (void *) va, 0, (void *) va, PTE_U | PTE_P | PTE_COW)) < 0)
+      panic("duppage: sys_page_map (1) err %e", r);
+  } else {
+    sys_page_map(0, (void *) va, envid, (void *) va, PTE_P | PTE_U);
+  }
+
   return 0;
 }
 
@@ -100,7 +124,8 @@ fork(void)
 
   // 3. duppage for each writable or copy-on-write page
   for (uintptr_t va = 0; va < USTACKTOP; va += PGSIZE)
-    if ((uvpd[PDX(va)] & (PTE_P | PTE_U)) == (PTE_P | PTE_U) && (uvpt[PGNUM(va)] & (PTE_P | PTE_U)) == (PTE_P | PTE_U))
+    if ((uvpd[PDX(va)] & (PTE_P | PTE_U)) == (PTE_P | PTE_U)
+        && (uvpt[PGNUM(va)] & (PTE_P | PTE_U)) == (PTE_P | PTE_U))
       duppage(e, PGNUM(va));
 
   // 4. allocate exception stack
@@ -118,7 +143,7 @@ fork(void)
   if (rval < 0)
     panic("fork: sys_env_set_status err %e", rval);
 
-  return 0;
+  return e;
 }
 
 // Challenge!

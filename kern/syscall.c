@@ -179,7 +179,6 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 
   struct Env *env;
   if (envid2env(envid, &env, 1)) {
-    cprintf("\n1\n\n");
     return -E_BAD_ENV;
   }
 
