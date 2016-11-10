@@ -325,8 +325,50 @@ sys_page_unmap(envid_t envid, void *va)
 static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
-  // LAB 4: Your code here.
-  panic("sys_ipc_try_send not implemented");
+  struct Env *env;
+  if (envid2env(envid, &env, 0))
+    return -E_BAD_ENV;
+
+  if (!env->env_ipc_recving)
+    return -E_IPC_NOT_RECV;
+
+  // IPC page
+  if ((uintptr_t) srcva < UTOP) {
+    pte_t *pte;
+
+    //  -E_INVAL is srcva is not mapped in srcenvid's address space.
+    struct PageInfo *page = page_lookup(curenv->env_pgdir, srcva, &pte);
+    if (page == NULL)
+      return -E_INVAL;
+
+    if ((uintptr_t) srcva % PGSIZE != 0)
+      return -E_INVAL;
+
+    // PTE_U and PTE_P must be set
+    // perm & ~(PTE_U | PTE_P | PTE_AVAIL | PTE_W) must be zero
+    if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL))
+      return -E_INVAL;
+
+    // if srcva is read-only but perm & PTE_W
+    if ((perm & PTE_W) && !(*pte & PTE_W))
+      return -E_INVAL;
+
+    if (env->env_ipc_dstva < (void*)UTOP) {
+      if (page_insert(env->env_pgdir, page, env->env_ipc_dstva, perm) < 0)
+        return -E_NO_MEM;
+      env->env_ipc_perm = perm;
+    }
+  } else {
+    env->env_ipc_perm = 0;
+  }
+
+  env->env_ipc_recving = 0;
+  env->env_ipc_from = curenv->env_id;
+  env->env_ipc_value = value;
+  env->env_status = ENV_RUNNABLE;
+  env->env_tf.tf_regs.reg_eax = 0;
+
+  return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -343,8 +385,16 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 static int
 sys_ipc_recv(void *dstva)
 {
-  // LAB 4: Your code here.
-  panic("sys_ipc_recv not implemented");
+  // recieve a page
+  if ((uintptr_t) dstva < UTOP && (uintptr_t) dstva % PGSIZE != 0)
+    return -E_INVAL;
+
+  curenv->env_ipc_recving = 1;
+  curenv->env_ipc_dstva = dstva;
+  curenv->env_status = ENV_NOT_RUNNABLE;
+
+  sched_yield();
+
   return 0;
 }
 
@@ -390,6 +440,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
       break;
     case SYS_yield:
       sys_yield();
+      break;
+    case SYS_ipc_try_send:
+      rval = sys_ipc_try_send((envid_t) a1, a2, (void *) a3, (unsigned) a4);
+      break;
+    case SYS_ipc_recv:
+      rval = sys_ipc_recv((void *) a1);
       break;
     default:
       rval = -E_INVAL;
