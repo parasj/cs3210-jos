@@ -76,9 +76,14 @@ trap_init(void)
 
   // set up idt
   SETGATE(idt[T_BRKPT], 0, GD_KT, trapfuncs[T_BRKPT], 3); // INT 3 instruction
+
   for (int i = 0; i < 20; ++i)
     if (i != T_BRKPT)
       SETGATE(idt[i], 0, GD_KT, trapfuncs[i], 0);
+
+  for (int i = 0; i < IRQ_ERROR + 1; ++i)
+    if (i != T_SYSCALL - IRQ_OFFSET)
+      SETGATE(idt[IRQ_OFFSET + i], 0, GD_KT, trapfuncs[IRQ_OFFSET + i], 0);
 
   // map system call
   SETGATE(idt[T_SYSCALL], 0, GD_KT, trapfuncs[T_SYSCALL], 3);
@@ -210,7 +215,11 @@ trap_dispatch(struct Trapframe *tf)
 
   // Handle clock interrupts. Don't forget to acknowledge the
   // interrupt using lapic_eoi() before calling the scheduler!
-  // LAB 4: Your code here.
+  if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+    lapic_eoi();
+    sched_yield();
+    return;
+  }
 
   // Unexpected trap: The user process or the kernel has a bug.
   print_trapframe(tf);

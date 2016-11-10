@@ -77,6 +77,12 @@
  * 31 (0x1F)       No              Reserved
  * -               No              Triple Fault
  * IRQ 13          No              FPU Error Interrupt
+ * #define IRQ_TIMER        0
+ * #define IRQ_KBD          1
+ * #define IRQ_SERIAL       4
+ * #define IRQ_SPURIOUS     7
+ * #define IRQ_IDE         14
+ * #define IRQ_ERROR       19
  */
 
 .data
@@ -116,23 +122,29 @@ trapfuncs:
         TRAPHANDLER_NOEC(trap_r29, 29)
         TRAPHANDLER_NOEC(trap_r30, 30)
         TRAPHANDLER_NOEC(trap_r31, 31)
-        TRAPHANDLER_NOEC(trap_r32, 32)
-        TRAPHANDLER_NOEC(trap_r33, 33)
+        TRAPHANDLER_NOEC(trap_irq_timer, IRQ_OFFSET + IRQ_TIMER)
+        TRAPHANDLER_NOEC(trap_irq_kbd, IRQ_OFFSET + IRQ_KBD)
         TRAPHANDLER_NOEC(trap_r34, 34)
         TRAPHANDLER_NOEC(trap_r35, 35)
-        TRAPHANDLER_NOEC(trap_r36, 36)
+        TRAPHANDLER_NOEC(trap_irq_serial, IRQ_OFFSET + IRQ_SERIAL)
         TRAPHANDLER_NOEC(trap_r37, 37)
         TRAPHANDLER_NOEC(trap_r38, 38)
-        TRAPHANDLER_NOEC(trap_r39, 39)
+        TRAPHANDLER_NOEC(trap_irq_spurious, IRQ_OFFSET + IRQ_SPURIOUS)
         TRAPHANDLER_NOEC(trap_r40, 40)
         TRAPHANDLER_NOEC(trap_r41, 41)
         TRAPHANDLER_NOEC(trap_r42, 42)
         TRAPHANDLER_NOEC(trap_r43, 43)
         TRAPHANDLER_NOEC(trap_r44, 44)
         TRAPHANDLER_NOEC(trap_r45, 45)
-        TRAPHANDLER_NOEC(trap_r46, 46)
+        TRAPHANDLER_NOEC(trap_irq_ide, IRQ_OFFSET + IRQ_IDE)
         TRAPHANDLER_NOEC(trap_r47, 47)
         TRAPHANDLER_NOEC(trap_syscall, T_SYSCALL)
+        TRAPHANDLER_NOEC(trap_r49, 49)
+        TRAPHANDLER_NOEC(trap_r50, 50)
+        TRAPHANDLER_NOEC(trap_irq_error, IRQ_OFFSET + IRQ_ERROR)
+        
+        
+        
         
 
 _alltraps:
