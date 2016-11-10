@@ -366,7 +366,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
   env->env_ipc_from = curenv->env_id;
   env->env_ipc_value = value;
   env->env_status = ENV_RUNNABLE;
-  env->env_tf.tf_regs.reg_eax = 0;
+  env->env_tf.tf_regs.reg_eax = 0; // set return value for sys_ipc_recv to 0
 
   return 0;
 }
@@ -394,7 +394,7 @@ sys_ipc_recv(void *dstva)
   curenv->env_status = ENV_NOT_RUNNABLE;
 
   sched_yield();
-
+  panic("sys_ipc_recv should not return");
   return 0;
 }
 
