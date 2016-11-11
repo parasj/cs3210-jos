@@ -72,3 +72,133 @@ This occurs in env_run.
 Register data structure:
 	struct Trapframe
 		struct PushRegs tf_regs
+
+
+## Lab 4c - challenge
+I chose to implement the matrix multiplication example:
+	Challenge! The prime sieve is only one neat use of message passing between a
+	large number of concurrent programs. Read C. A. R. Hoare, Communicating
+	Sequential Processes, Communications of the ACM 21(8) (August 1978), 666-667,
+	and implement the matrix multiplication example.
+
+I implemented this in user/matrix.c. umain calls buildGridFromMatrix which
+creates l*l environments as datanodes and passes relevant pids to each datanode
+(the next datanode to the right and the next datanode to the bottom).
+
+Each of these datanodes waits first for a value to come from the left which it
+will relay to the datanode on its right. It then waits for a value to come from
+the top which it uses to compute the partial matrix multiplication which it then
+relays to the value downwards. The main program sends relevant values to the
+leftmost datanodes and sends zeros to the top most datanodes. It then waits to
+recieve l values which it maps back to the relevant row of the output matrix. It
+uses the sender's pid to determine which value it just recieved.
+
+The previous process is repeated l times to produce the l rows of the output
+matrix.
+
+See the following output. The first two matrices displayed are the input
+matrices. The last matrix is the output matrix. Using an online matrix
+multiplication tool, I verified this solution:
+
+	paras@ubuntu:~/code/cs3210-lab$ make run-matrix-nox
+	make[1]: Entering directory '/home/paras/code/cs3210-lab'
+	make[1]: Leaving directory '/home/paras/code/cs3210-lab'
+	qemu-system-i386 -nographic -drive file=obj/kern/kernel.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::26000 -D qemu.log -smp 1 
+	main-loop: WARNING: I/O thread spun for 1000 iterations
+	6828 decimal is 15254 octal!
+	Physical memory: 66556K available, base = 640K, extended = 65532K
+	check_page_alloc() succeeded!
+	check_page() succeeded!
+	check_kern_pgdir() succeeded!
+	check_page_installed_pgdir() succeeded!
+	SMP: CPU 0 found 1 CPU(s)
+	enabled interrupts: 1 2
+	[00000000] new env 00001000
+	[00001000] new env 00001001
+	[00001000] new env 00001002
+	[00001000] new env 00001003
+	[00001000] new env 00001004
+	[00001000] new env 00001005
+	[00001000] new env 00001006
+	[00001000] new env 00001007
+	[00001000] new env 00001008
+	[00001000] new env 00001009
+	[00001000] new env 0000100a
+	[00001000] new env 0000100b
+	[00001000] new env 0000100c
+	[00001000] new env 0000100d
+	[00001000] new env 0000100e
+	[00001000] new env 0000100f
+	[00001000] new env 00001010
+	[00001000] new env 00001011
+	[00001000] new env 00001012
+	[00001000] new env 00001013
+	[00001000] new env 00001014
+	[00001000] new env 00001015
+	[00001000] new env 00001016
+	[00001000] new env 00001017
+	[00001000] new env 00001018
+	[00001000] new env 00001019
+	[00001019] exiting gracefully
+	[00001019] free env 00001019
+	[00001014] exiting gracefully
+	[00001014] free env 00001014
+	[0000100f] exiting gracefully
+	[0000100f] free env 0000100f
+	[0000100a] exiting gracefully
+	[0000100a] free env 0000100a
+	[00001009] exiting gracefully
+	[00001009] free env 00001009
+	[00001004] exiting gracefully
+	[00001004] free env 00001004
+	[0000100e] exiting gracefully
+	[0000100e] free env 0000100e
+	[00001005] exiting gracefully
+	[00001005] free env 00001005
+	[00001013] exiting gracefully
+	[00001013] free env 00001013
+	[00001018] exiting gracefully
+	[00001018] free env 00001018
+	[00001015] exiting gracefully
+	[00001015] free env 00001015
+	[00001010] exiting gracefully
+	[00001010] free env 00001010
+	[0000100b] exiting gracefully
+	[0000100b] free env 0000100b
+	[00001006] exiting gracefully
+	[00001006] free env 00001006
+	[00001001] exiting gracefully
+	[00001001] free env 00001001
+	[00001007] exiting gracefully
+	[00001007] free env 00001007
+	[00001002] exiting gracefully
+	[00001002] free env 00001002
+	[00001008] exiting gracefully
+	[00001008] free env 00001008
+
+	  1   2   3   4   5 	      11  12  13  14  15 	     	     105 120 135 150 165 
+	  6   7   8   9  10 	       6   7   8   9  10 	     	     280 320 360 400 440 
+	 11  12  13  14  15 	       1   2   3   4   5 	     	     455 520 585 650 715 
+	  6   7   8   9  10 	       6   7   8   9  10 	     	     280 320 360 400 440 
+	  1   2   3   4   5 	      11  12  13  14  15 	     	     105 120 135 150 165 
+
+	[00001000] exiting gracefully
+	[00001000] free env 00001000
+	[00001003] exiting gracefully
+	[00001003] free env 00001003
+	[0000100c] exiting gracefully
+	[0000100c] free env 0000100c
+	[0000100d] exiting gracefully
+	[0000100d] free env 0000100d
+	[00001011] exiting gracefully
+	[00001011] free env 00001011
+	[00001016] exiting gracefully
+	[00001016] free env 00001016
+	[00001012] exiting gracefully
+	[00001012] free env 00001012
+	[00001017] exiting gracefully
+	[00001017] free env 00001017
+	No runnable environments in the system!
+	Welcome to the JOS kernel monitor!
+	Type 'help' for a list of commands.
+	K> 
