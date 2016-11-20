@@ -11,24 +11,37 @@ void sched_halt(void);
 void
 sched_yield(void)
 {
-  struct Env *idle;
+  // Implement simple round-robin scheduling.
+  //
+  // Search through 'envs' for an ENV_RUNNABLE environment in
+  // circular fashion starting just after the env this CPU was
+  // last running.  Switch to the first such environment found.
+  //
+  // If no envs are runnable, but the environment previously
+  // running on this CPU is still ENV_RUNNING, it's okay to
+  // choose that environment.
+  //
+  // Never choose an environment that's currently running on
+  // another CPU (env_status == ENV_RUNNING). If there are
+  // no runnable environments, simply drop through to the code
+  // below to halt the cpu.
 
-        // Implement simple round-robin scheduling.
-        //
-        // Search through 'envs' for an ENV_RUNNABLE environment in
-        // circular fashion starting just after the env this CPU was
-        // last running.  Switch to the first such environment found.
-        //
-        // If no envs are runnable, but the environment previously
-        // running on this CPU is still ENV_RUNNING, it's okay to
-        // choose that environment.
-        //
-        // Never choose an environment that's currently running on
-        // another CPU (env_status == ENV_RUNNING). If there are
-        // no runnable environments, simply drop through to the code
-        // below to halt the cpu.
+  int startEnvx = 0;
+  if (curenv)
+    startEnvx = ENVX(curenv->env_id) + 1;
 
-  // LAB 4: Your code here.
+  for (int i = 0; i < NENV; ++i) {
+    int searchEnvx = (startEnvx + i) % NENV;
+    if (envs[searchEnvx].env_status == ENV_RUNNABLE) {
+      env_run(&envs[searchEnvx]);
+      return;
+    }
+  }
+
+  if (curenv && curenv->env_status == ENV_RUNNING) {
+    env_run(curenv);
+    return;
+  }
 
   // sched_halt never returns
   sched_halt();
