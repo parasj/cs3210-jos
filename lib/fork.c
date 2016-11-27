@@ -63,20 +63,25 @@ duppage(envid_t envid, unsigned pn)
   int r;
   uintptr_t va = pn * PGSIZE;
 
+  int perm = uvpt[pn] & PTE_SYSCALL;
+
   // ensure correct permissions
-  assert((uvpt[pn] & (PTE_P | PTE_U)) == (PTE_P | PTE_U));
+  assert((perm & (PTE_P | PTE_U)) == (PTE_P | PTE_U));
   assert(envid > 0);
   assert(pn > 0);
   assert(va < UTOP);
   assert(va <= USTACKTOP);
 
-  if (uvpt[pn] & (PTE_W | PTE_COW)) {
-    if ((r = sys_page_map(0, (void *) va, envid, (void *) va, PTE_U | PTE_P | PTE_COW)) < 0)
+  if (!(perm & PTE_SHARE) && perm & (PTE_W | PTE_COW)) {
+    perm &= ~PTE_W;
+    perm |= PTE_COW;
+
+    if ((r = sys_page_map(0, (void *) va, envid, (void *) va, perm)) < 0)
       panic("duppage: sys_page_map (2) err %e", r);
-    if ((r = sys_page_map(0, (void *) va, 0, (void *) va, PTE_U | PTE_P | PTE_COW)) < 0)
+    if ((r = sys_page_map(0, (void *) va, 0, (void *) va, perm)) < 0)
       panic("duppage: sys_page_map (1) err %e", r);
   } else {
-    sys_page_map(0, (void *) va, envid, (void *) va, PTE_P | PTE_U);
+    sys_page_map(0, (void *) va, envid, (void *) va, perm);
   }
 
   return 0;

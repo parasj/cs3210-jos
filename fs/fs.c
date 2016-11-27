@@ -190,7 +190,7 @@ file_get_block(struct File *f, uint32_t filebno, char **blk)
 	// if block wasn't allocated
 	if (!*ppdiskbno) {
 		if ((r = alloc_block()) < 0)
-			return r;
+			return -E_NO_DISK;
 		*ppdiskbno = r;
 	}
 
