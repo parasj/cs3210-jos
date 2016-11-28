@@ -21,7 +21,7 @@ sys_cputs(const char *s, size_t len)
 {
   // Check that the user has permission to read memory [s, s+len).
   // Destroy the environment if not.
-  user_mem_assert(curenv, s, len, 0);
+  user_mem_assert(curenv, s, len, PTE_U);
 
   // Print the string supplied by the user.
   cprintf("%.*s", len, s);
@@ -196,6 +196,8 @@ sys_page_alloc(envid_t envid, void *va, int perm)
   //   If page_insert() fails, remember to free the page you
   //   allocated!
 
+  int r;
+
   // PTE_U and PTE_P must be set
   // perm & ~(PTE_U | PTE_P | PTE_AVAIL | PTE_W) must be zero
   if (!(perm & PTE_U) || !(perm & PTE_P) || (perm & ~PTE_SYSCALL))
@@ -206,20 +208,14 @@ sys_page_alloc(envid_t envid, void *va, int perm)
     return -E_INVAL;
 
   struct Env *env;
-  if (envid2env(envid, &env, 1)) {
-    return -E_BAD_ENV;
-  }
+  if ((r = envid2env(envid, &env, 1)) < 0)
+    return r;
 
   struct PageInfo *page = page_alloc(ALLOC_ZERO);
-  if (page == NULL) {
-    cprintf("\n2\n\n");
+  if (page == NULL)
     return -E_NO_MEM;
-  }
-
-  page->pp_ref++;
 
   if (page_insert(env->env_pgdir, page, va, perm)) {
-    cprintf("\n3\n\n");
     page_free(page);
     return -E_NO_MEM;
   }
