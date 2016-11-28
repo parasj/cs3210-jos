@@ -35,6 +35,11 @@ sys_cgetc(void)
   return cons_getc();
 }
 
+static int
+sys_ccheckc(int character) {
+  return cons_checkc(character);
+}
+
 // Returns the current environment's envid.
 static envid_t
 sys_getenvid(void)
@@ -437,6 +442,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
       break;
     case SYS_cgetc:
       rval = sys_cgetc();
+      break;
+    case SYS_ccheckc:
+      rval = sys_ccheckc((int) a1);
       break;
     case SYS_getenvid:
       rval = sys_getenvid();

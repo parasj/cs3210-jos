@@ -159,7 +159,7 @@ runit:
   if (r >= 0) {
     if (debug)
       cprintf("[%08x] WAIT %s %08x\n", thisenv->env_id, argv[0], r);
-    wait(r);
+    interruptible_wait(r);
     if (debug)
       cprintf("[%08x] wait finished\n", thisenv->env_id);
   }

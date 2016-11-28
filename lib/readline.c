@@ -21,7 +21,10 @@ readline(const char *prompt)
   echoing = iscons(0);
   while (1) {
     c = getchar();
-    if (c < 0) {
+    if (c == 3) { // Ctrl-C
+      buf[0] = c;
+      return buf;
+    } else if (c < 0) {
       if (c != -E_EOF)
         cprintf("read error: %e\n", c);
       return NULL;

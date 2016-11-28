@@ -19,6 +19,7 @@
 
 void cons_init(void);
 int cons_getc(void);
+int cons_checkc(int character);
 
 void kbd_intr(void);    // irq 1
 void serial_intr(void); // irq 4

@@ -50,6 +50,12 @@ sys_cgetc(void)
 }
 
 int
+sys_ccheckc(int character)
+{
+  return syscall(SYS_ccheckc, 0, character, 0, 0, 0, 0);
+}
+
+int
 sys_env_destroy(envid_t envid)
 {
   return syscall(SYS_env_destroy, 1, envid, 0, 0, 0, 0);

@@ -44,6 +44,7 @@ char*   readline(const char *buf);
 // syscall.c
 void    sys_cputs(const char *string, size_t len);
 int     sys_cgetc(void);
+int     sys_ccheckc(int character);
 envid_t sys_getenvid(void);
 int sys_env_destroy(envid_t);
 void    sys_yield(void);
@@ -119,6 +120,7 @@ int     pipeisclosed(int pipefd);
 
 // wait.c
 void    wait(envid_t env);
+void    interruptible_wait(envid_t env);
 
 /* File open modes */
 #define O_RDONLY        0x0000          /* open for reading only */

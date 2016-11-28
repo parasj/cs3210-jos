@@ -43,7 +43,24 @@ Challenge:
 	As I extended the kernel to support checking for characters in the keyboard buffer,
 	this kept the user-land code minimal.
 
-		
+		 inc/lib.h      |  2 ++
+		 inc/syscall.h  |  1 +
+		 kern/console.c | 24 ++++++++++++++++++++++++
+		 kern/console.h |  1 +
+		 kern/syscall.c |  8 ++++++++
+		 lib/readline.c |  5 ++++-
+		 lib/syscall.c  |  6 ++++++
+		 lib/wait.c     | 23 +++++++++++++++++++++--
+		 user/sh.c      |  2 +-
+		 9 files changed, 68 insertions(+), 4 deletions(-)
+
+	Care had to be given to ensure that A) the control-c key was not sent to the shell upon
+	exiting the program, B) the new system call would not introduce some vulnerability and
+	C) that capturing the CTRL-C signal would not prevent programs from capturing normal
+	input. A potential security drawback from this approach is that a malicious user program
+	could query for all alphanumeric keys with the goal of trying to extract a password that
+	a user was entering for another user environment. A fix for this may be to restrict the
+	system call to only checking for various types of signals (e.g. CTRL-C, CTRL-Z, etc).
 
 
 Output:
