@@ -1,0 +1,204 @@
+# Lab 4 questions
+By Paras Jain
+
+## Lab 4a
+
+1. Compare kern/mpentry.S side by side with boot/boot.S. Bearing in mind that
+kern/mpentry.S is compiled and linked to run above KERNBASE just like everything
+else in the kernel, what is the purpose of macro MPBOOTPHYS? Why is it necessary
+in kern/mpentry.S but not in boot/boot.S? In other words, what could go wrong if
+it were omitted in kern/mpentry.S? Hint: recall the differences between the link
+address and the load address that we have discussed in Lab 1.
+
+
+As we are not guarenteed to have this program execute at specific low memory, we
+need to address into the script without knowing the real physical addresses.
+boot_aps() loads mpentry.S and enters the MPENTRY_ADDR which alllows mpentry to
+calculate where the program is running. Compare this to boot.S which could
+assume it was running at low memory. In terms of link/load - mpentry is running
+at load address >KERNBASE. It then runs mp_main which is at a lower address.
+Without a linker to add link address, we need to use MPBOOTPHYS.
+
+
+
+2. It seems that using the big kernel lock guarantees that only one CPU can run
+the kernel code at a time. Why do we still need separate kernel stacks for each
+CPU? Describe a scenario in which using a shared kernel stack will go wrong,
+even with the protection of the big kernel lock.
+
+
+A big kernel lock will not work if there are two interrupts (trap during
+another trap). Then if another CPU C1 places the trap frame on the kernel stack
+(then waiting for C0 to release to the lock),
+and then the original CPU C0 exits, it will remove the trapframe for C1, not C0.
+This race condition is one example of why separate kernel stacks are needed.
+
+
+
+3. In your implementation of env_run() you should have called lcr3(). Before and
+after the call to lcr3(), your code makes references (at least it should) to the
+variable e, the argument to env_run. Upon loading the %cr3 register, the
+addressing context used by the MMU is instantly changed. But a virtual address 
+(namely e) has meaning relative to a given address context–the address context
+specifies the physical address to which the virtual address maps. Why can the
+pointer e be dereferenced both before and after the addressing switch?
+
+
+It doesn't matter since kernel memory above UTOP is mapped to the same location
+in all environments. This lets the kernel continue to use memory mapping during
+a system call.
+
+
+
+4. Whenever the kernel switches from one environment to another, it must ensure
+the old environment’s registers are saved so they can be restored properly
+later. Why? Where does this happen?
+
+The reason is that if the registers are not saved, then the environment cannot
+be properly restored. This is an issue since the restore will not be able to
+restore the registers correctly. This register save happens in trap.c:
+
+	> // Copy trap frame (which is currently on the stack)
+	> // into 'curenv->env_tf', so that running the environment
+	> // will restart at the trap point.
+	> curenv->env_tf = *tf;
+
+The environment saves the registers when another environment is run in env.c:
+	
+	> env_pop_tf(&e->env_tf);
+
+This occurs in env_run.
+
+Register data structure:
+	struct Trapframe
+		struct PushRegs tf_regs
+
+
+## Lab 4c - challenge
+I chose to implement the matrix multiplication example:
+	Challenge! The prime sieve is only one neat use of message passing between a
+	large number of concurrent programs. Read C. A. R. Hoare, Communicating
+	Sequential Processes, Communications of the ACM 21(8) (August 1978), 666-667,
+	and implement the matrix multiplication example.
+
+I implemented this in user/matrix.c. umain calls buildGridFromMatrix which
+creates l*l environments as datanodes and passes relevant pids to each datanode
+(the next datanode to the right and the next datanode to the bottom).
+
+Each of these datanodes waits first for a value to come from the left which it
+will relay to the datanode on its right. It then waits for a value to come from
+the top which it uses to compute the partial matrix multiplication which it then
+relays to the value downwards. The main program sends relevant values to the
+leftmost datanodes and sends zeros to the top most datanodes. It then waits to
+recieve l values which it maps back to the relevant row of the output matrix. It
+uses the sender's pid to determine which value it just recieved.
+
+The previous process is repeated l times to produce the l rows of the output
+matrix.
+
+See the following output. The first two matrices displayed are the input
+matrices. The last matrix is the output matrix. Using an online matrix
+multiplication tool, I verified this solution:
+
+	paras@ubuntu:~/code/cs3210-lab$ make run-matrix-nox
+	make[1]: Entering directory '/home/paras/code/cs3210-lab'
+	make[1]: Leaving directory '/home/paras/code/cs3210-lab'
+	qemu-system-i386 -nographic -drive file=obj/kern/kernel.img,index=0,media=disk,format=raw -serial mon:stdio -gdb tcp::26000 -D qemu.log -smp 1 
+	main-loop: WARNING: I/O thread spun for 1000 iterations
+	6828 decimal is 15254 octal!
+	Physical memory: 66556K available, base = 640K, extended = 65532K
+	check_page_alloc() succeeded!
+	check_page() succeeded!
+	check_kern_pgdir() succeeded!
+	check_page_installed_pgdir() succeeded!
+	SMP: CPU 0 found 1 CPU(s)
+	enabled interrupts: 1 2
+	[00000000] new env 00001000
+	[00001000] new env 00001001
+	[00001000] new env 00001002
+	[00001000] new env 00001003
+	[00001000] new env 00001004
+	[00001000] new env 00001005
+	[00001000] new env 00001006
+	[00001000] new env 00001007
+	[00001000] new env 00001008
+	[00001000] new env 00001009
+	[00001000] new env 0000100a
+	[00001000] new env 0000100b
+	[00001000] new env 0000100c
+	[00001000] new env 0000100d
+	[00001000] new env 0000100e
+	[00001000] new env 0000100f
+	[00001000] new env 00001010
+	[00001000] new env 00001011
+	[00001000] new env 00001012
+	[00001000] new env 00001013
+	[00001000] new env 00001014
+	[00001000] new env 00001015
+	[00001000] new env 00001016
+	[00001000] new env 00001017
+	[00001000] new env 00001018
+	[00001000] new env 00001019
+	[00001019] exiting gracefully
+	[00001019] free env 00001019
+	[00001014] exiting gracefully
+	[00001014] free env 00001014
+	[0000100f] exiting gracefully
+	[0000100f] free env 0000100f
+	[0000100a] exiting gracefully
+	[0000100a] free env 0000100a
+	[00001009] exiting gracefully
+	[00001009] free env 00001009
+	[00001004] exiting gracefully
+	[00001004] free env 00001004
+	[0000100e] exiting gracefully
+	[0000100e] free env 0000100e
+	[00001005] exiting gracefully
+	[00001005] free env 00001005
+	[00001013] exiting gracefully
+	[00001013] free env 00001013
+	[00001018] exiting gracefully
+	[00001018] free env 00001018
+	[00001015] exiting gracefully
+	[00001015] free env 00001015
+	[00001010] exiting gracefully
+	[00001010] free env 00001010
+	[0000100b] exiting gracefully
+	[0000100b] free env 0000100b
+	[00001006] exiting gracefully
+	[00001006] free env 00001006
+	[00001001] exiting gracefully
+	[00001001] free env 00001001
+	[00001007] exiting gracefully
+	[00001007] free env 00001007
+	[00001002] exiting gracefully
+	[00001002] free env 00001002
+	[00001008] exiting gracefully
+	[00001008] free env 00001008
+
+	  1   2   3   4   5 	      11  12  13  14  15 	     	     105 120 135 150 165 
+	  6   7   8   9  10 	       6   7   8   9  10 	     	     280 320 360 400 440 
+	 11  12  13  14  15 	       1   2   3   4   5 	     	     455 520 585 650 715 
+	  6   7   8   9  10 	       6   7   8   9  10 	     	     280 320 360 400 440 
+	  1   2   3   4   5 	      11  12  13  14  15 	     	     105 120 135 150 165 
+
+	[00001000] exiting gracefully
+	[00001000] free env 00001000
+	[00001003] exiting gracefully
+	[00001003] free env 00001003
+	[0000100c] exiting gracefully
+	[0000100c] free env 0000100c
+	[0000100d] exiting gracefully
+	[0000100d] free env 0000100d
+	[00001011] exiting gracefully
+	[00001011] free env 00001011
+	[00001016] exiting gracefully
+	[00001016] free env 00001016
+	[00001012] exiting gracefully
+	[00001012] free env 00001012
+	[00001017] exiting gracefully
+	[00001017] free env 00001017
+	No runnable environments in the system!
+	Welcome to the JOS kernel monitor!
+	Type 'help' for a list of commands.
+	K> 

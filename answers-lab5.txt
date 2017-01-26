@@ -1,0 +1,94 @@
+Question 1:
+	Nothing needs to be done as this permission is stored in the eflags register
+	which is automatically saved and restored on context switch. It is therefore
+	unnessary to do anything more.
+
+Challenge:
+	I implemented ctrl-c to kill running environment. Specifically, in the shell,
+	you can hit ctrl-c when a environment is running and that will terminate the
+	currently running program. This allows exiting a misbehaving program or exiting
+	from a REPL environment, like when running num.
+
+	To implement this, I created a new wait function that either waits for program
+	termination or exits upon CTRL-C. Note that console.c uses a special bit modifier
+	on the key to signal CTRL.
+
+	I created a new system call sys_ccheckc which allows checking if a character is in
+	the keyboard buffer without advancing the pointer for the read pointer in the circular
+	buffer. See the output below:
+
+		paras@ubuntu:~/code/cs3210-lab$ make run-icode
+		...
+		init: running sh
+		init: starting sh
+		$ ls
+		newmotd
+		motd
+		lorem
+		script
+		testshell.key
+		testshell.sh
+		init
+		cat
+
+		CTRL-C interrupt
+		$ num
+		    1 test1
+		    2 test2
+		    3 test3
+		    4 test4
+		CTRL-C interrupt
+		$
+
+	As I extended the kernel to support checking for characters in the keyboard buffer,
+	this kept the user-land code minimal.
+
+		 inc/lib.h      |  2 ++
+		 inc/syscall.h  |  1 +
+		 kern/console.c | 24 ++++++++++++++++++++++++
+		 kern/console.h |  1 +
+		 kern/syscall.c |  8 ++++++++
+		 lib/readline.c |  5 ++++-
+		 lib/syscall.c  |  6 ++++++
+		 lib/wait.c     | 23 +++++++++++++++++++++--
+		 user/sh.c      |  2 +-
+		 9 files changed, 68 insertions(+), 4 deletions(-)
+
+	Care had to be given to ensure that A) the control-c key was not sent to the shell upon
+	exiting the program, B) the new system call would not introduce some vulnerability and
+	C) that capturing the CTRL-C signal would not prevent programs from capturing normal
+	input. A potential security drawback from this approach is that a malicious user program
+	could query for all alphanumeric keys with the goal of trying to extract a password that
+	a user was entering for another user environment. A fix for this may be to restrict the
+	system call to only checking for various types of signals (e.g. CTRL-C, CTRL-Z, etc).
+
+
+Output:
+	paras@ubuntu:~/code/cs3210-lab$ ./grade-lab5
+	+ cc kern/init.c
+	+ cc kern/syscall.c
+	+ ld obj/kern/kernel
+	+ mk obj/kern/kernel.img
+	internal FS tests [fs/test.c]: OK (2.4s) 
+	  fs i/o: OK 
+	  check_bc: OK 
+	  check_super: OK 
+	  check_bitmap: OK 
+	  alloc_block: OK 
+	  file_open: OK 
+	  file_get_block: OK 
+	  file_flush/file_truncate/file rewrite: OK 
+	testfile: OK (1.2s) 
+	  serve_open/file_stat/file_close: OK 
+	  file_read: OK 
+	  file_write: OK 
+	  file_read after file_write: OK 
+	  open: OK 	
+	  large file: OK 
+	spawn via spawnhello: OK (1.8s) 
+	PTE_SHARE [testpteshare]: OK (2.0s) 
+	PTE_SHARE [testfdsharing]: OK (2.2s) 
+	start the shell [icode]: OK (2.2s) 
+	testshell: OK (3.5s) 
+	primespipe: OK 
+	Score: 145/145

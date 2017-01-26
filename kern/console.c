@@ -7,6 +7,7 @@
 #include <inc/assert.h>
 
 #include <kern/console.h>
+#include <kern/picirq.h>
 
 static void cons_intr(int (*proc)(void));
 static void cons_putc(int c);
@@ -100,6 +101,9 @@ serial_init(void)
   (void)inb(COM1+COM_IIR);
   (void)inb(COM1+COM_RX);
 
+  // Enable serial interrupts
+  if (serial_exists)
+    irq_setmask_8259A(irq_mask_8259A & ~(1<<4));
 }
 
 
@@ -369,6 +373,9 @@ kbd_intr(void)
 static void
 kbd_init(void)
 {
+  // Drain the kbd buffer so that QEMU generates interrupts.
+  kbd_intr();
+  irq_setmask_8259A(irq_mask_8259A & ~(1<<1));
 }
 
 
@@ -400,6 +407,30 @@ cons_intr(int (*proc)(void))
     if (cons.wpos == CONSBUFSIZE)
       cons.wpos = 0;
   }
+}
+
+int
+cons_checkc(int character)
+{
+  int c;
+
+  // poll for any pending input characters,
+  // so that this function works even when interrupts are disabled
+  // (e.g., when called from the kernel monitor).
+  serial_intr();
+  kbd_intr();
+
+  // grab the next character from the input buffer.
+  for (int i = cons.rpos; i != cons.wpos; i++) {
+    c = cons.buf[i];
+    if (i == CONSBUFSIZE)
+      i = 0;
+    if (c == character) {
+      return 1;
+    }
+  }
+
+  return 0;
 }
 
 // return the next input character from the console, or 0 if none waiting
